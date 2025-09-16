@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+.env
+backend/faiss_index/
+
+# Node/JS
+node_modules/
+
+# API keys / secrets
+backend/config.py
+backend/.env
+
