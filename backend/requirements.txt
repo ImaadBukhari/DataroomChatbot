@@ -1,0 +1,26 @@
+# Web framework
+fastapi
+uvicorn[standard]
+
+# OpenAI API
+openai
+tiktoken
+
+# Vector search
+faiss-cpu
+
+# Google Drive integration
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+
+# Document parsing
+pdfplumber
+python-docx
+python-pptx
+openpyxl
+pandas
+
+# Env variables
+python-dotenv
