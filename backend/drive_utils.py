@@ -19,46 +19,89 @@ logger = logging.getLogger(__name__)
 
 class GoogleDriveManager:
     def __init__(self):
-        self.SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+        self.credentials = None
         self.service = None
-        self.authenticate()
-    
-    def authenticate(self):
+        try:
+            self._authenticate()
+        except Exception as e:
+            logger.error(f"Google Drive authentication failed: {e}")
+            raise 
+
+    def _authenticate(self):
         """Authenticate with Google Drive API"""
-        creds = None
+        SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+        token_file = GOOGLE_TOKEN_FILE or '/tmp/token.json'
         
-        # Load existing token
-        if os.path.exists(GOOGLE_TOKEN_FILE):
-            creds = Credentials.from_authorized_user_file(GOOGLE_TOKEN_FILE, self.SCOPES)
+        logger.info(f"Authenticating with token file: {token_file}")
+        logger.info(f"Client ID: {GOOGLE_CLIENT_ID[:20]}...")
         
-        # If no valid credentials, get new ones
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                # Create credentials info for OAuth flow
-                client_config = {
-                    "installed": {
-                        "client_id": GOOGLE_CLIENT_ID,
-                        "client_secret": GOOGLE_CLIENT_SECRET,
-                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                        "token_uri": "https://oauth2.googleapis.com/token",
-                        "redirect_uris": ["http://localhost"]
-                    }
+        # Check if token file exists
+        if not os.path.exists(token_file):
+            logger.error(f"Token file not found at {token_file}")
+            raise FileNotFoundError(f"Token file not found at {token_file}")
+        
+        try:
+            # Load existing token
+            with open(token_file, 'r') as f:
+                token_data = json.load(f)
+                
+            if not token_data or token_data == {}:
+                logger.error("Empty token file found")
+                raise ValueError("Empty token file")
+            
+            logger.info(f"Token data keys: {list(token_data.keys())}")
+            
+            # Create credentials from token data
+            self.credentials = Credentials(
+                token=token_data.get('token'),
+                refresh_token=token_data.get('refresh_token'),
+                token_uri=token_data.get('token_uri', 'https://oauth2.googleapis.com/token'),
+                client_id=GOOGLE_CLIENT_ID,
+                client_secret=GOOGLE_CLIENT_SECRET,
+                scopes=SCOPES
+            )
+            
+            logger.info(f"Created credentials with client_id: {self.credentials.client_id[:20]}...")
+            
+            # Refresh the token if it's expired
+            if self.credentials.expired and self.credentials.refresh_token:
+                logger.info("Token is expired, refreshing...")
+                self.credentials.refresh(Request())
+                
+                # Save the refreshed token
+                updated_token = {
+                    'token': self.credentials.token,
+                    'refresh_token': self.credentials.refresh_token,
+                    'token_uri': self.credentials.token_uri,
+                    'client_id': self.credentials.client_id,
+                    'client_secret': self.credentials.client_secret,
+                    'scopes': self.credentials.scopes
                 }
                 
-                flow = InstalledAppFlow.from_client_config(client_config, self.SCOPES)
-                creds = flow.run_local_server(port=0)
+                with open(token_file, 'w') as f:
+                    json.dump(updated_token, f)
+                    
+                logger.info("Token refreshed and saved")
+            elif self.credentials.expired:
+                logger.warning("Token is expired but no refresh token available")
             
-            # Save credentials for next run
-            with open(GOOGLE_TOKEN_FILE, 'w') as token:
-                token.write(creds.to_json())
-        
-        self.service = build('drive', 'v3', credentials=creds)
-        logger.info("Successfully authenticated with Google Drive")
-    
+            # Build the service
+            self.service = build('drive', 'v3', credentials=self.credentials)
+            logger.info("Google Drive service initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Error during authentication: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            raise
+
+    # ... rest of your methods stay the same
+
     async def download_dataroom_files(self) -> List[Dict[str, Any]]:
         """Download and parse files from Google Drive dataroom folder"""
+        if not self.service:
+            raise ValueError("Google Drive service not initialized. Authentication may have failed.")
+            
         try:
             # Find dataroom folder (you might want to specify a folder ID or name)
             # For now, we'll get all files - you can modify this to target a specific folder
@@ -69,6 +112,8 @@ class GoogleDriveManager:
             
             files = results.get('files', [])
             processed_files = []
+            
+            logger.info(f"Found {len(files)} files in Google Drive")
             
             for file in files:
                 try:
@@ -128,30 +173,34 @@ class GoogleDriveManager:
             elif mime_type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
                 return self._parse_pptx(file_io)
             elif mime_type in ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv']:
-                return self._parse_excel_csv(file_io, mime_type)
+                return self._parse_excel_csv(file_io)
             elif mime_type.startswith('text/'):
-                return file_io.read().decode('utf-8', errors='ignore')
+                return file_io.read().decode('utf-8')
             else:
                 logger.warning(f"Unsupported file type: {mime_type}")
                 return ""
                 
         except Exception as e:
-            logger.error(f"Error downloading/parsing file: {str(e)}")
+            logger.error(f"Error downloading/parsing file {file['name']}: {str(e)}")
             return ""
-    
+
     def _download_google_workspace_file(self, file_id: str, mime_type: str) -> str:
-        """Download Google Workspace files (Docs, Sheets, Slides)"""
-        export_format = None
-        
-        if mime_type == 'application/vnd.google-apps.document':
-            export_format = 'text/plain'
-        elif mime_type == 'application/vnd.google-apps.spreadsheet':
-            export_format = 'text/csv'
-        elif mime_type == 'application/vnd.google-apps.presentation':
-            export_format = 'text/plain'
-        
-        if export_format:
-            request = self.service.files().export_media(fileId=file_id, mimeType=export_format)
+        """Download and convert Google Workspace files"""
+        try:
+            # Convert Google Docs/Sheets/Slides to text
+            if mime_type == 'application/vnd.google-apps.document':
+                # Export as plain text
+                request = self.service.files().export_media(fileId=file_id, mimeType='text/plain')
+            elif mime_type == 'application/vnd.google-apps.spreadsheet':
+                # Export as CSV
+                request = self.service.files().export_media(fileId=file_id, mimeType='text/csv')
+            elif mime_type == 'application/vnd.google-apps.presentation':
+                # Export as plain text
+                request = self.service.files().export_media(fileId=file_id, mimeType='text/plain')
+            else:
+                logger.warning(f"Unsupported Google Workspace type: {mime_type}")
+                return ""
+            
             file_io = io.BytesIO()
             downloader = MediaIoBaseDownload(file_io, request)
             
@@ -159,12 +208,14 @@ class GoogleDriveManager:
             while done is False:
                 status, done = downloader.next_chunk()
             
-            return file_io.getvalue().decode('utf-8', errors='ignore')
-        
-        return ""
-    
+            return file_io.getvalue().decode('utf-8')
+            
+        except Exception as e:
+            logger.error(f"Error downloading Google Workspace file: {str(e)}")
+            return ""
+
     def _parse_pdf(self, file_io: io.BytesIO) -> str:
-        """Parse PDF file"""
+        """Parse PDF content"""
         try:
             with pdfplumber.open(file_io) as pdf:
                 text = ""
@@ -174,9 +225,9 @@ class GoogleDriveManager:
         except Exception as e:
             logger.error(f"Error parsing PDF: {str(e)}")
             return ""
-    
+
     def _parse_docx(self, file_io: io.BytesIO) -> str:
-        """Parse DOCX file"""
+        """Parse DOCX content"""
         try:
             doc = Document(file_io)
             text = ""
@@ -186,9 +237,9 @@ class GoogleDriveManager:
         except Exception as e:
             logger.error(f"Error parsing DOCX: {str(e)}")
             return ""
-    
+
     def _parse_pptx(self, file_io: io.BytesIO) -> str:
-        """Parse PPTX file"""
+        """Parse PPTX content"""
         try:
             prs = Presentation(file_io)
             text = ""
@@ -200,16 +251,15 @@ class GoogleDriveManager:
         except Exception as e:
             logger.error(f"Error parsing PPTX: {str(e)}")
             return ""
-    
-    def _parse_excel_csv(self, file_io: io.BytesIO, mime_type: str) -> str:
-        """Parse Excel or CSV file"""
+
+    def _parse_excel_csv(self, file_io: io.BytesIO) -> str:
+        """Parse Excel/CSV content"""
         try:
-            if mime_type == 'text/csv':
-                df = pd.read_csv(file_io)
-            else:
-                df = pd.read_excel(file_io)
-            
+            df = pd.read_excel(file_io) if file_io.name.endswith('.xlsx') else pd.read_csv(file_io)
             return df.to_string()
         except Exception as e:
             logger.error(f"Error parsing Excel/CSV: {str(e)}")
             return ""
+
+
+    

@@ -12,3 +12,5 @@ backend/config.py
 backend/.env
 token.json
 
+deploy.sh
+

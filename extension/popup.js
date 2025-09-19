@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'https://dataroom-chatbot-604369366615.us-central1.run.app';
 
 class DataroomChatbot {
     constructor() {
