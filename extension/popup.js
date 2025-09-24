@@ -103,7 +103,8 @@ class DataroomChatbot {
             const data = await response.json();
             
             if (response.ok) {
-                this.addMessage(`Successfully updated! Processed ${data.files_processed} files.`, 'bot');
+                // Use the message field from the response
+                this.addMessage(data.message || `Successfully updated! Processed ${data.files_processed} files.`, 'bot');
                 await this.checkStatus();
             } else {
                 throw new Error(data.detail || 'Update failed');

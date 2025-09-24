@@ -99,41 +99,43 @@ async def health_check():
 
 @app.post("/update", response_model=UpdateResponse)
 async def update_embeddings():
-    """Download files from Google Drive and update embeddings"""
-    global drive_manager, embedding_manager, rag_manager
+    """Update embeddings with latest dataroom files"""
+    global drive_manager, embedding_manager
     
-    if not drive_manager or not embedding_manager or not rag_manager:
+    if not drive_manager or not embedding_manager:
         raise HTTPException(status_code=503, detail="Service not ready - managers not initialized")
     
     try:
         logger.info("Starting dataroom update...")
         
         # Download files from Google Drive
+        logger.info("Downloading files from Google Drive...")
         files = await drive_manager.download_dataroom_files()
+        logger.info(f"Downloaded {len(files)} files")
         
         if not files:
+            logger.warning("No files downloaded from Google Drive")
             return UpdateResponse(
-                status="success",
-                message="No files found in dataroom",
-                files_processed=0
+                files_processed=0, 
+                status="success", 
+                message="No files found in dataroom"
             )
         
-        # Process and embed files
+        # Update embeddings - use the correct method name
+        logger.info("Processing and embedding files...")
         await embedding_manager.process_and_embed_files(files)
-        
-        # Update RAG manager with new embeddings
-        rag_manager.load_index()
-        
-        logger.info(f"Successfully processed {len(files)} files")
+        logger.info("Embeddings updated successfully")
         
         return UpdateResponse(
+            files_processed=len(files),
             status="success",
-            message=f"Successfully updated embeddings for {len(files)} files",
-            files_processed=len(files)
+            message="Dataroom updated successfully"
         )
         
     except Exception as e:
         logger.error(f"Error updating embeddings: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error updating embeddings: {str(e)}")
 
 @app.post("/chat", response_model=ChatResponse)

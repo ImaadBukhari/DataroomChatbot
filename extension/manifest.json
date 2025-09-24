@@ -4,8 +4,6 @@
   "version": "1.0",
   "description": "AI-powered chatbot for dataroom documents",
   "permissions": [
-    "identity",
-    "activeTab"
   ],
   "oauth2": {
     "client_id": "604369366615-6fip401c8ov96rt4a84rthtsmfgakuqt.apps.googleusercontent.com",
