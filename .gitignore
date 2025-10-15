@@ -13,4 +13,8 @@ backend/.env
 token.json
 
 deploy.sh
-
+generate_token.py
+backend/service_account.json
+metadata.json
+extension/manifest.json
+extension/manifest.json

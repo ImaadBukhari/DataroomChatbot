@@ -1,4 +1,4 @@
-const API_BASE = 'https://dataroom-chatbot-604369366615.us-central1.run.app';
+const API_BASE = 'https://dataroom-chatbot-bbum6xs6zq-uc.a.run.app';
 
 class DataroomChatbot {
     constructor() {

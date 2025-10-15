@@ -2,6 +2,7 @@ import numpy as np
 from typing import List, Tuple, Dict, Any
 from openai import OpenAI
 import logging
+import os
 
 from config import OPENAI_API_KEY
 from embed_utils import EmbeddingManager
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class RAGManager:
     def __init__(self, embedding_manager: EmbeddingManager):
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.embedding_manager = embedding_manager
         self.index = None
         self.metadata = None

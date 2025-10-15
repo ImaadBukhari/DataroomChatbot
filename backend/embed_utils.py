@@ -9,19 +9,18 @@ from openai import OpenAI
 from google.cloud import storage
 import tempfile
 
-from config import OPENAI_API_KEY
 
 logger = logging.getLogger(__name__)
 
 class EmbeddingManager:
     def __init__(self, chunk_size: int = 300):
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.chunk_size = chunk_size
         self.dimension = 1536  # text-embedding-ada-002 dimension
         self.encoding = tiktoken.get_encoding("cl100k_base")
         
         # Cloud Storage configuration
-        self.bucket_name = "dataroom-chatbot-storage"  # You'll need to create this bucket
+        self.bucket_name = "dataroom-chatbot-storage-dataroom-chatbot-475100"  
         self.index_blob_name = "faiss_index/index.faiss"
         self.metadata_blob_name = "faiss_index/metadata.json"
         
@@ -56,6 +55,11 @@ class EmbeddingManager:
                         'mime_type': file['mime_type'],
                         'modified_time': file.get('modified_time')
                     })
+
+            logger.info(f"Received {len(files)} files for embedding")
+            for f in files[:10]:  # log the first 10
+                logger.info(f" - {f['name']} | content length: {len(f['content'])}")
+
             
             if not all_chunks:
                 logger.warning("No chunks to embed")
