@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Dataroom Chatbot",
-  "version": "1.0",
+  "version": "3.0",
   "description": "AI-powered chatbot for dataroom documents",
   "permissions": [
   ],
   "oauth2": {
-    "client_id": "604369366615-6fip401c8ov96rt4a84rthtsmfgakuqt.apps.googleusercontent.com",
+    "client_id": "666517733065-sk7e6tp0sql6k3sto2s8b3ebjdofir71.apps.googleusercontent.com",
     "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
   },
   "action": {
