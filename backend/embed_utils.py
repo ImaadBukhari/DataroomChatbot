@@ -10,6 +10,7 @@ from google.cloud import storage
 import tempfile
 
 
+
 logger = logging.getLogger(__name__)
 
 class EmbeddingManager:
@@ -47,13 +48,20 @@ class EmbeddingManager:
                 chunks = self._split_into_chunks(file['content'])
                 for i, chunk in enumerate(chunks):
                     all_chunks.append(chunk)
+                    
+                    # Extract contextual metadata from chunk
+                    context_info = self._extract_chunk_context(chunk, file['content'], i)
+                    
                     all_metadata.append({
                         'file_id': file['id'],
                         'file_name': file['name'],
                         'chunk_index': i,
                         'chunk_text': chunk,
                         'mime_type': file['mime_type'],
-                        'modified_time': file.get('modified_time')
+                        'modified_time': file.get('modified_time'),
+                        'context_level': context_info['level'],
+                        'section_heading': context_info['heading'],
+                        'key_entities': context_info['entities']
                     })
 
             logger.info(f"Received {len(files)} files for embedding")
@@ -80,19 +88,96 @@ class EmbeddingManager:
             raise
 
     def _split_into_chunks(self, text: str) -> List[str]:
-        """Split text into chunks of specified token size"""
+        """Split text into chunks with overlap and sentence boundary awareness"""
         if not text.strip():
             return []
         
         tokens = self.encoding.encode(text)
         chunks = []
+        overlap_tokens = 50  # 50 token overlap between chunks
         
-        for i in range(0, len(tokens), self.chunk_size):
-            chunk_tokens = tokens[i:i + self.chunk_size]
+        i = 0
+        while i < len(tokens):
+            # Get chunk tokens
+            end_idx = min(i + self.chunk_size, len(tokens))
+            chunk_tokens = tokens[i:end_idx]
+            
+            # Try to break at sentence boundary if possible
+            if end_idx < len(tokens):
+                # Look for sentence endings in the last 20 tokens
+                for j in range(len(chunk_tokens) - 1, max(0, len(chunk_tokens) - 20), -1):
+                    chunk_text = self.encoding.decode(chunk_tokens[:j+1])
+                    if chunk_text.strip().endswith(('.', '!', '?', '\n')):
+                        chunk_tokens = chunk_tokens[:j+1]
+                        break
+            
             chunk_text = self.encoding.decode(chunk_tokens)
             chunks.append(chunk_text)
+            
+            # Move to next chunk with overlap
+            if end_idx >= len(tokens):
+                break
+            i = end_idx - overlap_tokens
         
         return chunks
+
+    def _extract_chunk_context(self, chunk: str, full_content: str, chunk_index: int) -> Dict[str, Any]:
+        """Extract contextual metadata from a chunk"""
+        try:
+            # Simple heuristic-based context extraction
+            context_level = "general"
+            section_heading = ""
+            entities = []
+            
+            # Determine context level based on content
+            chunk_lower = chunk.lower()
+            
+            # Fund-level indicators
+            fund_keywords = ["fund size", "management fee", "carried interest", "investment thesis", 
+                           "fund strategy", "total capital", "fund details", "portfolio construction"]
+            
+            # Company-level indicators  
+            company_keywords = ["company", "startup", "portfolio company", "investment in", 
+                              "funding round", "series a", "series b", "valuation"]
+            
+            # Count keyword matches
+            fund_matches = sum(1 for keyword in fund_keywords if keyword in chunk_lower)
+            company_matches = sum(1 for keyword in company_keywords if keyword in chunk_lower)
+            
+            if fund_matches > company_matches:
+                context_level = "fund-level"
+            elif company_matches > fund_matches:
+                context_level = "company-level"
+            elif "portfolio" in chunk_lower:
+                context_level = "portfolio-level"
+            
+            # Extract section heading (look for lines starting with # or being all caps)
+            lines = chunk.split('\n')
+            for line in lines[:3]:  # Check first 3 lines
+                line = line.strip()
+                if line.startswith('#') or (len(line) < 50 and line.isupper()):
+                    section_heading = line
+                    break
+            
+            # Extract potential entities (simple heuristic)
+            import re
+            # Look for capitalized words that might be company names or fund names
+            potential_entities = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', chunk)
+            entities = [entity for entity in potential_entities if len(entity) > 3 and len(entity) < 30][:5]
+            
+            return {
+                'level': context_level,
+                'heading': section_heading,
+                'entities': entities
+            }
+            
+        except Exception as e:
+            logger.error(f"Error extracting chunk context: {str(e)}")
+            return {
+                'level': 'general',
+                'heading': '',
+                'entities': []
+            }
 
     async def _create_embeddings(self, texts: List[str]) -> np.ndarray:
         """Create embeddings for a list of texts"""

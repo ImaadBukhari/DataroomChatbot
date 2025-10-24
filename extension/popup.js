@@ -6,14 +6,13 @@ class DataroomChatbot {
             status: document.getElementById('status'),
             statusIndicator: document.getElementById('statusIndicator'),
             statusText: document.getElementById('statusText'),
-            updateBtn: document.getElementById('updateBtn'),
-            updateSpinner: document.getElementById('updateSpinner'),
             messages: document.getElementById('messages'),
             messageInput: document.getElementById('messageInput'),
             sendBtn: document.getElementById('sendBtn'),
             fileCount: document.getElementById('fileCount')
         };
         
+        this.conversationHistory = [];
         this.init();
     }
     
@@ -23,7 +22,6 @@ class DataroomChatbot {
     }
     
     bindEvents() {
-        this.elements.updateBtn.addEventListener('click', () => this.updateDataroom());
         this.elements.sendBtn.addEventListener('click', () => this.sendMessage());
         this.elements.messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -51,7 +49,7 @@ class DataroomChatbot {
     }
     
     updateStatusUI(status) {
-        const { statusIndicator, statusText, updateBtn, messageInput, sendBtn, fileCount } = this.elements;
+        const { statusIndicator, statusText, messageInput, sendBtn, fileCount } = this.elements;
         
         // Update status indicator
         statusIndicator.className = 'status-indicator';
@@ -71,54 +69,17 @@ class DataroomChatbot {
         
         // Enable/disable controls
         const isReady = status.status === 'ready';
-        const canUpdate = status.status !== 'error';
         
-        updateBtn.disabled = !canUpdate;
         messageInput.disabled = !isReady;
         sendBtn.disabled = !isReady;
         
         if (isReady) {
             messageInput.placeholder = 'Ask a question about your dataroom...';
         } else {
-            messageInput.placeholder = 'Update dataroom first...';
+            messageInput.placeholder = 'Backend not ready...';
         }
     }
     
-    async updateDataroom() {
-        const { updateBtn, updateSpinner } = this.elements;
-        
-        try {
-            // Show loading state
-            updateBtn.disabled = true;
-            updateSpinner.classList.add('active');
-            this.elements.statusText.textContent = 'Updating...';
-            
-            const response = await fetch(`${API_BASE}/update`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            const data = await response.json();
-            
-            if (response.ok) {
-                // Use the message field from the response
-                this.addMessage(data.message || `Successfully updated! Processed ${data.files_processed} files.`, 'bot');
-                await this.checkStatus();
-            } else {
-                throw new Error(data.detail || 'Update failed');
-            }
-            
-        } catch (error) {
-            console.error('Error updating dataroom:', error);
-            this.addMessage(`Error updating dataroom: ${error.message}`, 'bot');
-            this.elements.statusText.textContent = 'Update failed';
-        } finally {
-            updateBtn.disabled = false;
-            updateSpinner.classList.remove('active');
-        }
-    }
     
     async sendMessage() {
         const { messageInput, sendBtn } = this.elements;
@@ -126,7 +87,8 @@ class DataroomChatbot {
         
         if (!message) return;
         
-        // Add user message
+        // Add user message to conversation history
+        this.conversationHistory.push({ role: 'user', content: message });
         this.addMessage(message, 'user');
         messageInput.value = '';
         
@@ -140,7 +102,10 @@ class DataroomChatbot {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ message })
+                body: JSON.stringify({ 
+                    message,
+                    conversation_history: this.conversationHistory
+                })
             });
             
             const data = await response.json();
@@ -149,6 +114,8 @@ class DataroomChatbot {
             loadingMessage.remove();
             
             if (response.ok) {
+                // Add bot response to conversation history
+                this.conversationHistory.push({ role: 'assistant', content: data.response });
                 this.addMessage(data.response, 'bot', data.sources);
             } else {
                 throw new Error(data.detail || 'Chat failed');
@@ -171,7 +138,13 @@ class DataroomChatbot {
         
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
-        contentDiv.textContent = content;
+        
+        // Parse markdown formatting for bot messages
+        if (type === 'bot') {
+            contentDiv.innerHTML = this.parseMarkdown(content);
+        } else {
+            contentDiv.textContent = content;
+        }
         
         messageDiv.appendChild(contentDiv);
         
@@ -187,6 +160,30 @@ class DataroomChatbot {
         messages.scrollTop = messages.scrollHeight;
         
         return messageDiv;
+    }
+    
+    parseMarkdown(text) {
+        // Simple markdown parser for basic formatting
+        let html = text;
+        
+        // Convert bullet points
+        html = html.replace(/^[\s]*[-*]\s+(.+)$/gm, '<li>$1</li>');
+        html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+        
+        // Convert numbered lists
+        html = html.replace(/^[\s]*\d+\.\s+(.+)$/gm, '<li>$1</li>');
+        html = html.replace(/(<li>.*<\/li>)/s, '<ol>$1</ol>');
+        
+        // Convert bold text
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        
+        // Convert italic text
+        html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        
+        // Convert line breaks
+        html = html.replace(/\n/g, '<br>');
+        
+        return html;
     }
 }
 

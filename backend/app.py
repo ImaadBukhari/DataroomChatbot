@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import asyncio
-from typing import List, Optional
+from typing import List, Optional, Dict
 import logging
 import sys
 
@@ -78,6 +78,7 @@ async def startup_event():
 
 class ChatRequest(BaseModel):
     message: str
+    conversation_history: Optional[List[Dict[str, str]]] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -150,7 +151,10 @@ async def chat(request: ChatRequest):
         logger.info(f"Received chat request: {request.message}")
         
         # Get relevant context and generate response
-        response, sources = await rag_manager.answer_question(request.message)
+        response, sources = await rag_manager.answer_question(
+            request.message, 
+            request.conversation_history
+        )
         
         return ChatResponse(
             response=response,
