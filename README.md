@@ -247,19 +247,38 @@ When you add new documents to your Google Drive dataroom, you need to update the
 - Press `Windows + R`
 - Type "cmd" and press Enter
 
-### Step 2: Copy and Paste This Command
+### Step 2: Install Required Tools (First Time Only)
 
-Copy this entire line and paste it into your terminal:
+If this is your first time updating, you need to install some tools:
 
 ```bash
+# Install Google Cloud CLI
+pip install google-cloud-cli
+
+```
+
+**Note**: You only need to do this once. After that, you can skip to Step 3.
+
+### Step 3: Copy and Paste This Command
+
+Copy and paste these lines of code individually into terminal and press enter:
+
+```bash
+# Set your Google Cloud project
+gcloud config set project your-project-id
+
+# Login to Google Cloud
+gcloud auth application-default login
+
+# Update the dataroom. Replace with your gcloud-url
 curl -X POST https://gcloud-url/update
 ```
 
-### Step 3: Press Enter
+### Step 4: Press Enter
 
 Press the Enter key to run the command.
 
-### Step 4: Wait for Success Message
+### Step 5: Wait for Success Message
 
 You should see a message like this after ~5 mins:
 ```json
@@ -271,7 +290,7 @@ This means:
 - ✅ **[x] files processed**: The chatbot found and processed [x] documents
 - ✅ **Ready to use**: You can now ask questions about your updated dataroom
 
-### Step 5: Test It Works
+### Step 6: Test It Works
 
 Open your Chrome extension and try asking a question about the new documents you added.
 
