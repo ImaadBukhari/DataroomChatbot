@@ -8,7 +8,11 @@ The Dataroom Chatbot helps you quickly find information across multiple document
 
 ## 🎯 Key Features
 
-- **Intelligent Document Search**: Uses OpenAI embeddings to understand the semantic meaning of your questions
+- **Intelligent Document Search**: Uses OpenAI embeddings with advanced query decomposition to understand the semantic meaning of your questions
+- **Context-Aware Retrieval**: Distinguishes between fund-level, portfolio-level, and company-specific information to avoid confusion
+- **LLM-Based Re-Ranking**: Uses GPT to score and re-rank retrieved chunks for maximum relevance
+- **Query Expansion**: Automatically generates semantic variations of your questions for better retrieval
+- **Conversation History**: Supports follow-up questions with full conversation context
 - **Multi-Format Support**: Processes PDFs, Word docs, PowerPoint presentations, Excel spreadsheets, and Google Workspace files
 - **Source Citations**: Every answer includes references to the source documents
 - **Persistent Storage**: Embeddings are stored in Google Cloud Storage for fast retrieval
@@ -39,14 +43,18 @@ The Dataroom Chatbot helps you quickly find information across multiple document
 
 1. **Document Ingestion**: Downloads files from your Google Drive
 2. **Text Extraction**: Parses various file formats into plain text
-3. **Chunking**: Splits documents into 300-token chunks for optimal embedding
-4. **Embedding Creation**: Uses OpenAI's `text-embedding-ada-002` model to create vector embeddings
-5. **Index Storage**: Stores embeddings in FAISS index uploaded to Google Cloud Storage
-6. **Query Processing**: When you ask a question:
-   - Creates an embedding of your question
-   - Searches FAISS index for semantically similar chunks
-   - Sends relevant context to GPT-4 for answer generation
-   - Returns answer with source citations
+3. **Enhanced Chunking**: Splits documents into 300-token chunks with overlap and sentence boundary awareness
+4. **Contextual Metadata**: Extracts document section context and hierarchical level tags (fund-level, company-level, etc.)
+5. **Embedding Creation**: Uses OpenAI's `text-embedding-ada-002` model to create vector embeddings
+6. **Index Storage**: Stores embeddings with metadata in FAISS index uploaded to Google Cloud Storage
+7. **Intelligent Query Processing**: When you ask a question:
+   - **Query Decomposition**: Analyzes intent and classifies information level needed
+   - **Query Expansion**: Generates semantic variations while maintaining context
+   - **FAISS Retrieval**: Searches for semantically similar chunks
+   - **LLM Re-Ranking**: Uses GPT to score chunks for actual relevance (0-10 scale)
+   - **Context Filtering**: Ensures appropriate information level (fund vs company vs portfolio)
+   - **Enhanced Generation**: GPT-4 generates answers with explicit context awareness
+   - **Source Citations**: Returns answer with source file references
 
 ## 📁 Project Structure
 
@@ -119,18 +127,23 @@ Handles embedding creation and storage:
 - Automatic index normalization for cosine similarity
 
 #### `backend/rag_utils.py`
-Implements the Retrieval-Augmented Generation logic:
-- **RAGManager class**: Coordinates retrieval and generation
-- `answer_question()`: Main entry point for question answering
-- `_get_relevant_context()`: Searches FAISS index for relevant chunks
-- `_generate_answer()`: Uses GPT-4 to generate answers from context
+Implements the advanced Retrieval-Augmented Generation logic:
+- **RAGManager class**: Coordinates retrieval and generation with intelligence improvements
+- `answer_question()`: Main entry point with conversation history support
+- `_classify_query_intent()`: Analyzes queries to determine information level and intent
+- `_expand_query()`: Generates semantic variations while maintaining context
+- `_get_relevant_context()`: Searches FAISS index with multiple query variations
+- `_rerank_chunks_with_llm()`: Uses GPT to score chunks for actual relevance (0-10)
+- `_generate_answer()`: Uses GPT-4 with enhanced prompting for context awareness
 
-**Process:**
-1. Embeds the user's question
-2. Searches FAISS index for top-k similar chunks (default: 5)
-3. Filters by similarity threshold (0.5)
-4. Sends relevant chunks + question to GPT-4
-5. Returns answer with source file citations
+**Enhanced Process:**
+1. **Query Analysis**: Classifies intent (fund-level, company-level, portfolio-level)
+2. **Query Expansion**: Generates 2-3 semantic variations maintaining context
+3. **FAISS Retrieval**: Searches for chunks using all query variations
+4. **LLM Re-Ranking**: GPT scores each chunk for actual relevance to the question
+5. **Context Filtering**: Filters chunks by appropriate information level
+6. **Enhanced Generation**: GPT-4 generates answers with explicit context distinction
+7. **Source Citations**: Returns answer with source file references
 
 ### Frontend Files
 
@@ -169,3 +182,113 @@ Modern, professional styling:
 - Smooth transitions and hover effects
 - Responsive message bubbles
 - Color-coded status indicators
+
+## 🚀 Deployment & Testing
+
+### Backend Deployment
+
+1. **Install Dependencies**:
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   ```
+
+2. **Set Environment Variables**:
+   ```bash
+   export OPENAI_API_KEY="your-openai-api-key"
+   export GOOGLE_CLIENT_ID="your-google-client-id"
+   export GOOGLE_CLIENT_SECRET="your-google-client-secret"
+   export IMPERSONATED_USER="your-email@domain.com"
+   ```
+
+3. **Deploy to Cloud Run**:
+   ```bash
+   ./deploy.sh
+   ```
+
+4. **Update Dataroom**:
+   ```bash
+   curl -X POST https://your-cloud-run-url/update
+   ```
+
+### Local Testing
+
+1. **Test with Your DDQ Document**:
+   ```bash
+   cd backend
+   python test_rag.py
+   ```
+
+2. **Test API Endpoints**:
+   ```bash
+   # Health check
+   curl https://your-cloud-run-url/health
+   
+   # Check status
+   curl https://your-cloud-run-url/status
+   
+   # Test chat
+   curl -X POST https://your-cloud-run-url/chat \
+     -H "Content-Type: application/json" \
+     -d '{"message": "What is your fund size?"}'
+   ```
+
+## 📋 How to Update the Dataroom 
+
+When you add new documents to your Google Drive dataroom, you need to update the chatbot so it can find the new information. Here's how to do it:
+
+### Step 1: Open Your Terminal/Command Prompt
+
+**On Mac:**
+- Press `Cmd + Space` and type "Terminal"
+- Click on "Terminal" to open it
+
+**On Windows:**
+- Press `Windows + R`
+- Type "cmd" and press Enter
+
+### Step 2: Copy and Paste This Command
+
+Copy this entire line and paste it into your terminal:
+
+```bash
+curl -X POST https://gcloud-url/update
+```
+
+### Step 3: Press Enter
+
+Press the Enter key to run the command.
+
+### Step 4: Wait for Success Message
+
+You should see a message like this after ~5 mins:
+```json
+{"status":"success","message":"Dataroom updated successfully","files_processed":47}
+```
+
+This means:
+- ✅ **Success**: The update worked
+- ✅ **[x] files processed**: The chatbot found and processed [x] documents
+- ✅ **Ready to use**: You can now ask questions about your updated dataroom
+
+### Step 5: Test It Works
+
+Open your Chrome extension and try asking a question about the new documents you added.
+
+### What This Does
+
+- **Downloads** all files from your Google Drive dataroom
+- **Processes** them with the latest AI improvements
+- **Updates** the search index so the chatbot can find new information
+- **Takes 2-5 minutes** depending on how many documents you have
+
+### When to Update
+
+Update the dataroom whenever you:
+- ✅ Add new documents to your Google Drive dataroom folder
+- ✅ Modify existing documents
+- ✅ Want to ensure the chatbot has the latest information
+
+**Note**: The chatbot only searches documents in your specific Google Drive dataroom folder, not your entire Google Drive.
+
+
