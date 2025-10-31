@@ -235,79 +235,176 @@ Modern, professional styling:
 
 ## 📋 How to Update the Dataroom 
 
-When you add new documents to your Google Drive dataroom, you need to update the chatbot so it can find the new information. Here's how to do it:
+When you add new documents to your Google Drive dataroom, you need to update the chatbot so it can find the new information. This guide will walk you through the entire process step-by-step.
 
-### Step 1: Open Your Terminal/Command Prompt
+### Step 1: Open Terminal (Mac Only)
 
-**On Mac:**
-- Press `Cmd + Space` and type "Terminal"
-- Click on "Terminal" to open it
+**To open Terminal on Mac:**
+1. Press `Cmd + Space` (this opens Spotlight search)
+2. Type "Terminal"
+3. Press Enter or click on "Terminal"
 
-**On Windows:**
-- Press `Windows + R`
-- Type "cmd" and press Enter
+You'll see a black window with text - this is your Terminal where you'll type commands.
 
-### Step 2: Install Required Tools (First Time Only)
+**Note**: These instructions are for Mac. If you're on Windows, please contact your technical team for assistance.
 
-If this is your first time updating, you need to install some tools:
+---
 
-```bash
-# Install Google Cloud CLI
-pip install google-cloud-cli
+### Step 2: Check if You Have Homebrew Installed (First Time Only)
 
-```
+Homebrew is a tool that helps install other software on Mac. Let's check if you already have it:
 
-**Note**: You only need to do this once. After that, you can skip to Step 3.
+1. In Terminal, type this command and press Enter:
+   ```bash
+   which brew
+   ```
 
-### Step 3: Copy and Paste This Command
+2. **If you see a path** (like `/usr/local/bin/brew` or `/opt/homebrew/bin/brew`):
+   - ✅ You already have Homebrew! Skip to **Step 3**.
 
-Copy and paste these lines of code individually into terminal and press enter:
+3. **If you see nothing or an error**:
+   - ❌ You need to install Homebrew. Continue to **Step 2b**.
 
-```bash
-# Set your Google Cloud project
-gcloud config set project your-project-id
+### Step 2b: Install Homebrew (If Needed)
 
-# Login to Google Cloud
-gcloud auth application-default login
+If you don't have Homebrew, here's how to install it:
 
-# Update the dataroom. Replace with your gcloud-url
-curl -X POST https://gcloud-url/update
-```
+1. Copy and paste this entire command into Terminal and press Enter:
+   ```bash
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
 
-### Step 4: Press Enter
+2. **What's happening**: This downloads and installs Homebrew on your computer.
 
-Press the Enter key to run the command.
+3. You'll be asked for your Mac password. Type it and press Enter (you won't see characters appear - this is normal for password entry).
 
-### Step 5: Wait for Success Message
+4. Wait for the installation to finish (this takes 2-3 minutes). You'll see messages like "Installation successful" when it's done.
 
-You should see a message like this after ~5 mins:
+5. **If you see instructions about adding Homebrew to your PATH**: Follow those instructions (usually involves copying a command and running it).
+
+---
+
+### Step 3: Install Google Cloud CLI (First Time Only)
+
+The Google Cloud CLI (Command Line Interface) is a tool that lets your computer talk to Google Cloud. Here's how to install it:
+
+1. In Terminal, type this command and press Enter:
+   ```bash
+   brew install google-cloud-sdk
+   ```
+
+2. **What's happening**: Homebrew is downloading and installing the Google Cloud tools on your computer.
+
+3. Wait for the installation to finish (this takes 2-5 minutes). You'll see a message like "google-cloud-sdk installed successfully" when it's done.
+
+**Note**: You only need to do Steps 2-3 once. After that, you can skip directly to Step 4 for future updates.
+
+---
+
+### Step 4: Set Up Google Cloud Connection (First Time Only)
+
+Before updating the dataroom, you need to tell your computer which Google Cloud project to use and log in. Do this:
+
+1. **Set your Google Cloud project** - Copy and paste this command, but **replace `your-project-id`** with your actual project ID (ask your technical team if you don't know it):
+   ```bash
+   gcloud config set project your-project-id
+   ```
+   - **What's happening**: This tells the computer which Google Cloud project belongs to your dataroom.
+
+2. Press Enter. You should see: "Updated property [core/project]"
+
+3. **Log in to Google Cloud** - Copy and paste this command and press Enter:
+   ```bash
+   gcloud auth application-default login
+   ```
+   - **What's happening**: This opens your web browser and asks you to log in with your Google account. This gives the computer permission to access your dataroom.
+
+4. Complete the login in your browser:
+   - Select your Google account
+   - Click "Allow" to grant permissions
+   - You should see "Credentials saved" in your browser
+
+5. Go back to Terminal - you should see "Credentials saved to file" message.
+
+**Note**: You only need to do Step 4 once. After that, you can skip directly to Step 5 for future updates.
+
+---
+
+### Step 5: Update the Dataroom
+
+Now you're ready to update the dataroom! Here's how:
+
+1. **Get your Cloud Run URL** - You'll need the URL of your deployed chatbot (ask your technical team if you don't have it).
+
+2. Copy and paste this command into Terminal, but **replace `https://gcloud-url/update`** with your actual URL (it should look like `https://dataroom-chatbot-xxxxx.run.app/update`):
+   ```bash
+   curl -X POST https://gcloud-url/update
+   ```
+
+3. Press Enter.
+
+4. **What's happening**: 
+   - The command sends a request to your chatbot server
+   - The server downloads all files from your Google Drive dataroom
+   - It processes each file with AI to understand the content
+   - It updates the search index so the chatbot can find information
+
+5. **Wait 2-5 minutes** - The process takes time depending on how many documents you have. You'll see messages in Terminal as files are processed.
+
+---
+
+### Step 6: Check if Update Succeeded
+
+When the update finishes, you'll see a message like this:
+
 ```json
 {"status":"success","message":"Dataroom updated successfully","files_processed":47}
 ```
 
-This means:
-- ✅ **Success**: The update worked
-- ✅ **[x] files processed**: The chatbot found and processed [x] documents
-- ✅ **Ready to use**: You can now ask questions about your updated dataroom
+**What this means:**
+- ✅ **"status":"success"** - The update worked perfectly!
+- ✅ **"files_processed":47** - Your dataroom has 47 documents that are now searchable
+- ✅ **Ready to use** - The chatbot now knows about all your documents
 
-### Step 6: Test It Works
+**If you see an error message instead:**
+- Wait 2-3 minutes and try Step 5 again
+- Check your internet connection
+- If it still doesn't work, contact your technical team
 
-Open your Chrome extension and try asking a question about the new documents you added.
+---
 
-### What This Does
+### Step 7: Test It Works
 
-- **Downloads** all files from your Google Drive dataroom
-- **Processes** them with the latest AI improvements
-- **Updates** the search index so the chatbot can find new information
-- **Takes 2-5 minutes** depending on how many documents you have
+Now test that the update worked:
 
-### When to Update
+1. Open your Chrome browser
+2. Click on the Dataroom Chatbot extension icon
+3. Ask a question about the new documents you added
+4. The chatbot should be able to answer using the newly added documents!
+
+---
+
+### Quick Reference for Future Updates
+
+Once you've done Steps 1-4 the first time, future updates are much simpler:
+
+1. Open Terminal
+2. Run the update command:
+   ```bash
+   curl -X POST https://your-actual-url/update
+   ```
+3. Wait for success message
+4. Done!
+
+---
+
+### When to Update the Dataroom
 
 Update the dataroom whenever you:
 - ✅ Add new documents to your Google Drive dataroom folder
-- ✅ Modify existing documents
-- ✅ Want to ensure the chatbot has the latest information
+- ✅ Modify or update existing documents
+- ✅ Want to ensure the chatbot has the very latest information
 
-**Note**: The chatbot only searches documents in your specific Google Drive dataroom folder, not your entire Google Drive.
+**Important Note**: The chatbot only searches documents in your specific Google Drive dataroom folder, not your entire Google Drive. Make sure new documents are added to the correct folder!
 
 
