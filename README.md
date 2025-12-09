@@ -330,7 +330,7 @@ Before updating the dataroom, you need to tell your computer which Google Cloud 
 
 ---
 
-### Step 5: Update the Dataroom
+### Step 5: Update the Dataroom Inputs into the Chatbot
 
 Now you're ready to update the dataroom! Here's how:
 
